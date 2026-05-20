@@ -1,21 +1,23 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-from threading import Thread
+import threading
 from flask import Flask
 import os
+import asyncio
 
-# Kleiner Webserver für Render
+# 1. Webserver einrichten
 app = Flask('')
+
 @app.route('/')
 def home():
     return "Bot ist online!"
 
 def run_webserver():
-    # Render nutzt den Port 10000 standardmäßig
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
+# 2. Discord Bot einrichten
 class TurfBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
@@ -83,10 +85,15 @@ async def turf(interaction: discord.Interaction, gegner: str, zeit: str):
     msg_text = "<@&1186401035300905021> Ein neues Turf startet!"
     await interaction.followup.send(content=msg_text, embed=view.generiere_embed(), view=view)
 
-# Hauptstart
+# 3. Haupt-Startfunktion (Startet beides parallel)
+def main():
+    # Startet den Webserver sauber im Hintergrund
+    server_thread = threading.Thread(target=run_webserver)
+    server_thread.daemon = True
+    server_thread.start()
+    
+    # Startet den Discord Bot
+    bot.run("MTUwNjczMjQ1NjEwMTk0MTQ3OQ.GaVlAh.IbYwVOz6Gv84S9FTisjtgI7-jqg_ggJv8ugWwI")
+
 if __name__ == "__main__":
-    # Startet den Webserver in einem eigenen Thread
-    t = Thread(target=run_webserver)
-    t.start()
-    # Startet den Discord Bot (Trage hier deinen Token ein)
-bot.run("MTUwNjczMjQ1NjEwMTk0MTQ3OQ.GaVlAh.IbYwVOz6Gv84S9FTisjtgI7-jqg_ggJv8ugWwI")
+    main()
