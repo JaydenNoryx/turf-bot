@@ -1,6 +1,20 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from threading import Thread
+from flask import Flask
+import os
+
+# Kleiner Webserver für Render
+app = Flask('')
+@app.route('/')
+def home():
+    return "Bot ist online!"
+
+def run_webserver():
+    # Render nutzt den Port 10000 standardmäßig
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
 
 class TurfBot(commands.Bot):
     def __init__(self):
@@ -25,7 +39,6 @@ class TurfView(discord.ui.View):
     def generiere_embed(self) -> discord.Embed:
         embed = discord.Embed(color=discord.Color.from_rgb(139, 0, 0))
         embed.title = "⚔️ TURF"
-        
         embed.add_field(name="🛡️ Gegner", value=f"**{self.gegner}**", inline=True)
         embed.add_field(name="⏰ Zeit", value=f"**{self.zeit}**", inline=True)
         
@@ -41,29 +54,39 @@ class TurfView(discord.ui.View):
 
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, emoji="✅", custom_id="turf_join")
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         user_id = interaction.user.id
         if user_id in self.spieler:
-            await interaction.response.send_message("Du bist bereits im Turf eingetragen!", ephemeral=True)
+            await interaction.followup.send("Du bist bereits im Turf eingetragen!", ephemeral=True)
             return
         if len(self.spieler) >= 15:
-            await interaction.response.send_message("Der Turf ist leider schon voll! (15/15)", ephemeral=True)
+            await interaction.followup.send("Der Turf ist leider schon voll! (15/15)", ephemeral=True)
             return
         self.spieler.append(user_id)
-        await interaction.response.edit_message(embed=self.generiere_embed(), view=self)
+        await interaction.message.edit(embed=self.generiere_embed(), view=self)
 
     @discord.ui.button(label="Leave", style=discord.ButtonStyle.danger, emoji="❌", custom_id="turf_leave")
     async def leave_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         user_id = interaction.user.id
         if user_id not in self.spieler:
-            await interaction.response.send_message("Du bist gar nicht eingetragen!", ephemeral=True)
+            await interaction.followup.send("Du bist gar nicht eingetragen!", ephemeral=True)
             return
         self.spieler.remove(user_id)
-        await interaction.response.edit_message(embed=self.generiere_embed(), view=self)
+        await interaction.message.edit(embed=self.generiere_embed(), view=self)
 
 @bot.tree.command(name="turf", description="Startet eine neue Turf-Anmeldung.")
 @app_commands.describe(gegner="Gegen welche Familie wird gekämpft?", zeit="Wann startet der Turf? (z.B. 18:00)")
 async def turf(interaction: discord.Interaction, gegner: str, zeit: str):
+    await interaction.response.defer()
     view = TurfView(gegner, zeit)
     msg_text = "<@&1186401035300905021> Ein neues Turf startet!"
-    await interaction.response.send_message(content=msg_text, embed=view.generiere_embed(), view=view)
+    await interaction.followup.send(content=msg_text, embed=view.generiere_embed(), view=view)
+
+# Hauptstart
+if __name__ == "__main__":
+    # Startet den Webserver in einem eigenen Thread
+    t = Thread(target=run_webserver)
+    t.start()
+    # Startet den Discord Bot (Trage hier deinen Token ein)
 bot.run("MTUwNjczMjQ1NjEwMTk0MTQ3OQ.GaVlAh.IbYwVOz6Gv84S9FTisjtgI7-jqg_ggJv8ugWwI")
